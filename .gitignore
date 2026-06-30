@@ -1,0 +1,34 @@
+# ---- Secrets: NEVER commit these ----
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*secret*
+*apikey*
+*api_key*
+
+# ---- Python virtual environments & caches ----
+.venv/
+venv/
+env/
+*-venv/
+__pycache__/
+*.pyc
+
+# ---- Large binaries / model files (too big for GitHub) ----
+*.safetensors
+*.ckpt
+*.gguf
+*.bin
+*.pt
+*.pth
+*.apk
+*.7z
+
+# ---- Archives (keep the repo lean) ----
+*.zip
+
+# ---- OS / editor cruft ----
+.DS_Store
+Thumbs.db

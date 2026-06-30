@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Echo-Win</title>
+<style>
+:root {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-surface: #1e1e35;
+  --bg-hover: #252540;
+  --bg-user: #2b1f4a;
+  --bg-assistant: #1e1e35;
+  --text-primary: #e4e4ef;
+  --text-secondary: #9a9ab0;
+  --text-muted: #6b6b85;
+  --accent: #7c5cfc;
+  --accent-hover: #9178ff;
+  --accent-muted: rgba(124, 92, 252, 0.15);
+  --border-subtle: rgba(124, 92, 252, 0.12);
+  --border-surface: rgba(255, 255, 255, 0.06);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 50%;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --transition: 0.2s ease;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body, .app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; margin: 0; overflow: hidden; }
+
+/* Topbar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px; background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; gap: 16px;
+}
+.brand { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+.brand::before { content: ''; width: 10px; height: 10px; border-radius: var(--radius-full); background: var(--accent); box-shadow: 0 0 12px rgba(124,92,252,0.4); }
+.topbar-controls { display: flex; align-items: center; gap: 16px; }
+select#model {
+  background: var(--bg-surface); color: var(--text-primary);
+  border: 1px solid var(--border-surface); border-radius: var(--radius-sm);
+  padding: 6px 36px 6px 14px; font-size: 0.875rem; font-family: var(--font-sans);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239a9ab0' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+  cursor: pointer; transition: border-color var(--transition), box-shadow var(--transition); outline: none;
+}
+select#model:hover { border-color: var(--accent-muted); }
+select#model:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-muted); }
+.icon-toggle {
+  background: var(--bg-surface); border: 1px solid var(--border-surface); color: var(--text-secondary);
+  border-radius: var(--radius-sm); padding: 6px 12px; cursor: pointer; font-size: 0.85rem;
+  font-family: var(--font-sans); transition: all var(--transition); white-space: nowrap;
+}
+.icon-toggle:hover { border-color: var(--accent-muted); color: var(--text-primary); }
+.icon-toggle.active { background: var(--accent-muted); border-color: var(--accent); color: var(--accent-hover); }
+.mic-active { background: var(--accent-muted) !important; color: var(--accent-hover) !important; }
+.msg-actions { margin-top: 4px; display: flex; gap: 4px; }
+.msg.assistant .msg-actions { align-self: flex-start; }
+.speak-btn {
+  background: transparent; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 0.72rem; padding: 1px 6px; border-radius: var(--radius-sm); opacity: 0.6; transition: all var(--transition);
+}
+.speak-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); opacity: 1; }
+.members { display: inline-flex; align-items: center; gap: 12px; font-size: 0.8rem; color: var(--text-secondary); }
+.members label { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.members input[type="checkbox"] {
+  appearance: none; width: 16px; height: 16px; border: 1.5px solid var(--text-muted);
+  border-radius: 4px; background: transparent; cursor: pointer; transition: all var(--transition);
+  position: relative; flex-shrink: 0;
+}
+.members input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+.members input[type="checkbox"]:checked::after {
+  content: ''; position: absolute; left: 4px; top: 1px; width: 5px; height: 9px;
+  border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+
+/* Chat area */
+.chat {
+  flex: 1; overflow-y: auto; padding: 24px 24px 16px;
+  width: 100%; max-width: 760px; margin: 0 auto; scroll-behavior: smooth;
+}
+.chat::-webkit-scrollbar { width: 6px; }
+.chat::-webkit-scrollbar-track { background: transparent; }
+.chat::-webkit-scrollbar-thumb { background: rgba(124,92,252,0.2); border-radius: 3px; }
+.chat::-webkit-scrollbar-thumb:hover { background: rgba(124,92,252,0.35); }
+.empty-hint { color: var(--text-muted); text-align: center; margin-top: 18vh; font-size: 0.95rem; }
+
+/* Messages */
+.msg { margin-bottom: 16px; display: flex; flex-direction: column; }
+.msg.user { align-items: flex-end; }
+.msg.assistant { align-items: flex-start; }
+.msg .bubble {
+  padding: 12px 18px; max-width: 78%; word-wrap: break-word; overflow-wrap: break-word;
+  line-height: 1.6; color: var(--text-primary); box-shadow: var(--shadow-sm); white-space: pre-wrap;
+}
+.msg.user .bubble {
+  background: var(--bg-user); border: 1px solid rgba(124,92,252,0.2);
+  border-radius: var(--radius-md) var(--radius-md) var(--radius-sm) var(--radius-md);
+}
+.msg.assistant .bubble {
+  background: var(--bg-assistant); border: 1px solid var(--border-surface);
+  border-radius: var(--radius-md) var(--radius-md) var(--radius-md) var(--radius-sm);
+}
+.msg .bubble .filetag {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+  font-size: 0.75rem; color: var(--text-secondary); background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-surface); border-radius: var(--radius-sm); padding: 3px 8px;
+}
+
+/* Tool notes */
+.tool-note {
+  font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);
+  background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 3px 12px;
+  align-self: flex-start; margin: 4px 0 8px; border: 1px solid rgba(255,255,255,0.04);
+}
+
+/* Media */
+.msg img, .msg audio, .msg video { border-radius: var(--radius-sm); max-width: 100%; height: auto; display: block; margin: 6px 0; }
+.msg audio { width: 320px; min-height: 44px; }
+.msg video { max-height: 400px; }
+
+/* Composer */
+.composer {
+  display: flex; align-items: flex-end; gap: 10px; padding: 14px 24px 18px;
+  background: var(--bg-secondary); border-top: 1px solid var(--border-subtle); flex-shrink: 0;
+  max-width: 808px; width: 100%; margin: 0 auto;
+}
+.composer-main { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.attach-btn, .send-btn {
+  width: 44px; height: 44px; border-radius: var(--radius-full); border: none;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: all var(--transition); background: transparent; color: var(--text-secondary); flex-shrink: 0;
+}
+.attach-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.send-btn { background: var(--accent); color: white; box-shadow: 0 2px 8px rgba(124,92,252,0.3); }
+.send-btn:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 4px 16px rgba(124,92,252,0.4); transform: scale(1.03); }
+.send-btn:active:not(:disabled) { transform: scale(0.97); }
+.send-btn:disabled, .attach-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+textarea#input {
+  width: 100%; background: var(--bg-surface); border: 1px solid var(--border-surface);
+  border-radius: var(--radius-md); padding: 12px 16px; font-family: var(--font-sans);
+  font-size: 0.925rem; color: var(--text-primary); line-height: 1.5; resize: none;
+  min-height: 44px; max-height: 180px; outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+textarea#input::placeholder { color: var(--text-muted); }
+textarea#input:hover { border-color: rgba(255,255,255,0.12); }
+textarea#input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-muted); }
+
+/* Attach chip */
+.attach-chip {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--bg-hover);
+  border: 1px solid var(--border-surface); border-radius: var(--radius-sm); padding: 4px 10px;
+  font-size: 0.78rem; color: var(--text-secondary); max-width: 260px; align-self: flex-start;
+}
+.attach-chip .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-chip .x {
+  display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
+  border: none; background: transparent; color: var(--text-muted); cursor: pointer;
+  border-radius: var(--radius-full); font-size: 0.95rem; line-height: 1; flex-shrink: 0;
+}
+.attach-chip .x:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">Echo-Win</div>
+    <div class="topbar-controls">
+      <button id="speakToggle" class="icon-toggle" title="Read replies aloud (offline)">🔊 Speak</button>
+      <select id="model"></select>
+      <div id="members">
+        <label><input type="checkbox" value="local" checked> local</label>
+        <label><input type="checkbox" value="deepseek" checked> deepseek</label>
+        <label><input type="checkbox" value="kimi" checked> kimi</label>
+        <label><input type="checkbox" value="claude" checked> claude</label>
+      </div>
+    </div>
+  </header>
+
+  <div id="chat" class="chat"><div class="empty-hint">Pick a model and say hello.</div></div>
+
+  <div class="composer">
+    <button id="mic" class="attach-btn" title="Dictate with Wispr Flow — focuses the box; then use your Wispr hotkey">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </button>
+    <button id="attach" class="attach-btn" title="Attach a text file">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+    </button>
+    <div class="composer-main">
+      <div id="attachChipArea"></div>
+      <textarea id="input" rows="1" placeholder="Message..."></textarea>
+    </div>
+    <button id="send" class="send-btn" title="Send">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+    <input type="file" id="fileInput" accept=".txt,.md,.json,.py,.js,.csv,.log,.html,.css,text/*" style="display:none">
+  </div>
+</div>
+
+<script>
+const history = [];
+let attachedFile = null;   // { name, content }
+
+const $ = (id) => document.getElementById(id);
+const chat = $('chat');
+
+// ---- text-to-speech (offline, local Windows voices) ----
+// Engine drafted by the local qwen-coder; speak() always plays (auto-speak is
+// gated at the call site so the per-message play button works even when off).
+const TTS = {
+  enabled: false,
+  voice: null,
+  init() {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      window.speechSynthesis.onvoiceschanged = () => this.init();
+      return;
+    }
+    this.voice = voices.find(v => v.name.includes('Zira')) ||
+                 voices.find(v => v.lang.startsWith('en')) ||
+                 voices[0];
+  },
+  speak(text) {
+    if (typeof text !== 'string' || !text.trim()) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if (this.voice) u.voice = this.voice;
+    u.rate = 1.0; u.pitch = 1.0;
+    window.speechSynthesis.speak(u);
+  },
+  stop() { window.speechSynthesis.cancel(); },
+  setEnabled(b) { this.enabled = !!b; if (!b) this.stop(); }
+};
+TTS.init();
+
+// ---- model list ----
+async function fetchModels() {
+  try {
+    const data = await (await fetch('/api/models')).json();
+    const sel = $('model');
+    data.models.forEach(m => {
+      const o = document.createElement('option');
+      o.value = m; o.textContent = m;
+      sel.appendChild(o);
+    });
+    toggleMembersVisibility();
+  } catch (e) { console.error('Error fetching models:', e); }
+}
+function toggleMembersVisibility() {
+  $('members').style.display = $('model').value === 'group' ? 'inline-flex' : 'none';
+}
+
+// ---- rendering ----
+function clearHint() { const h = chat.querySelector('.empty-hint'); if (h) h.remove(); }
+function scrollDown() { chat.scrollTop = chat.scrollHeight; }
+
+function addBubble(role, text, fileName) {
+  clearHint();
+  const msg = document.createElement('div');
+  msg.className = 'msg ' + role;
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text || '';
+  if (fileName) {
+    const tag = document.createElement('span');
+    tag.className = 'filetag';
+    tag.textContent = '📎 ' + fileName;
+    bubble.appendChild(document.createElement('br'));
+    bubble.appendChild(tag);
+  }
+  msg.appendChild(bubble);
+  if (role === 'assistant') {
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    const sp = document.createElement('button');
+    sp.className = 'speak-btn'; sp.title = 'Read aloud'; sp.textContent = '🔊';
+    sp.addEventListener('click', () => TTS.speak(bubble.textContent));
+    actions.appendChild(sp);
+    msg.appendChild(actions);
+  }
+  chat.appendChild(msg);
+  scrollDown();
+  return bubble;
+}
+function renderToolNote(text) {
+  clearHint();
+  const note = document.createElement('div');
+  note.className = 'tool-note';
+  note.textContent = text;
+  chat.appendChild(note);
+  scrollDown();
+}
+function renderImage(url) {
+  clearHint();
+  const msg = document.createElement('div');
+  msg.className = 'msg assistant';
+  const img = document.createElement('img');
+  img.src = url;
+  msg.appendChild(img);
+  chat.appendChild(msg);
+  scrollDown();
+}
+function renderMedia(url, kind) {
+  clearHint();
+  const msg = document.createElement('div');
+  msg.className = 'msg assistant';
+  const el = document.createElement(kind);   // 'audio' | 'video'
+  el.src = url; el.controls = true;
+  msg.appendChild(el);
+  chat.appendChild(msg);
+  scrollDown();
+}
+
+// ---- attachments ----
+$('attach').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    attachedFile = { name: f.name, content: await f.text() };
+    renderAttachChip();
+  } catch (err) { console.error('read file failed', err); }
+  e.target.value = '';
+});
+function renderAttachChip() {
+  const area = $('attachChipArea');
+  area.innerHTML = '';
+  if (!attachedFile) return;
+  const chip = document.createElement('div');
+  chip.className = 'attach-chip';
+  const name = document.createElement('span');
+  name.className = 'name'; name.textContent = '📎 ' + attachedFile.name;
+  const x = document.createElement('button');
+  x.className = 'x'; x.textContent = '×';
+  x.addEventListener('click', () => { attachedFile = null; renderAttachChip(); });
+  chip.appendChild(name); chip.appendChild(x);
+  area.appendChild(chip);
+}
+
+// ---- input behaviour ----
+const input = $('input');
+function autosize() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 180) + 'px'; }
+input.addEventListener('input', autosize);
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+$('send').addEventListener('click', sendMessage);
+$('model').addEventListener('change', toggleMembersVisibility);
+// Read replies aloud (offline TTS)
+$('speakToggle').addEventListener('click', () => {
+  const on = !TTS.enabled;
+  TTS.setEnabled(on);
+  $('speakToggle').classList.toggle('active', on);
+});
+// Mic = focus the box so Wispr Flow dictation lands here; then use your Wispr hotkey.
+$('mic').addEventListener('click', () => input.focus());
+function setBusy(b) {
+  input.disabled = b; $('send').disabled = b; $('attach').disabled = b; $('mic').disabled = b;
+  if (!b) setTimeout(() => input.focus(), 0);   // keep the box ready for dictation
+}
+
+// ---- send ----
+async function sendMessage() {
+  const typed = input.value.trim();
+  if (!typed && !attachedFile) return;
+
+  // Compose: the model sees the file contents; the bubble stays compact.
+  let modelContent = typed;
+  const fileName = attachedFile ? attachedFile.name : null;
+  if (attachedFile) {
+    const block = '[Attached file: ' + attachedFile.name + ']\n\n' + attachedFile.content;
+    modelContent = typed ? (typed + '\n\n' + block) : block;
+  }
+
+  const selectedModel = $('model').value;
+
+  // /paint command (uses the typed text only)
+  if (typed.startsWith('/paint ')) {
+    addBubble('user', typed);
+    input.value = ''; autosize(); attachedFile = null; renderAttachChip(); setBusy(true);
+    try {
+      const r = await fetch('/api/paint', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: typed.substring(7).trim() })
+      });
+      if (r.ok) { renderImage((await r.json()).view_url); }
+      else { addBubble('assistant', 'Image generation failed: ' + await r.text()); }
+    } catch (err) { addBubble('assistant', 'Image generation failed: ' + err.message); }
+    finally { setBusy(false); }
+    return;
+  }
+
+  // Local agent loop (Q4 mini-PC or Q6 LM Studio)
+  if (selectedModel === 'Local (tools)' || selectedModel === 'Local-Q6 (tools)') {
+    await sendToLocal(modelContent, typed, fileName, selectedModel);
+    input.value = ''; autosize(); attachedFile = null; renderAttachChip();
+    return;
+  }
+
+  // Normal chat (local / cloud / group)
+  history.push({ role: 'user', content: modelContent });
+  addBubble('user', typed, fileName);
+  input.value = ''; autosize(); attachedFile = null; renderAttachChip(); setBusy(true);
+
+  const requestBody = { model: selectedModel, messages: history };
+  if (selectedModel === 'group') {
+    requestBody.members = Array.from($('members').querySelectorAll('input:checked')).map(c => c.value);
+  }
+
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+    if (!response.ok) throw new Error('Network response was not ok');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    const bubble = addBubble('assistant', '');
+    let content = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      content += decoder.decode(value, { stream: true });
+      bubble.textContent = content;
+      scrollDown();
+    }
+    history.push({ role: 'assistant', content });
+    if (TTS.enabled) TTS.speak(content);
+  } catch (err) { console.error('Error sending message:', err); addBubble('assistant', 'Error: ' + err.message); }
+  finally { setBusy(false); }
+}
+
+// ---- Local agent loop (NDJSON event stream) ----
+async function sendToLocal(modelContent, displayText, fileName, model) {
+  history.push({ role: 'user', content: modelContent });
+  addBubble('user', displayText, fileName);
+  setBusy(true);
+
+  const assistantTexts = [];
+  try {
+    const response = await fetch('/api/local', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: history, model: model })
+    });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        const ev = JSON.parse(line);
+        if (ev.type === 'assistant') { assistantTexts.push(ev.content); addBubble('assistant', ev.content); if (TTS.enabled) TTS.speak(ev.content); }
+        else if (ev.type === 'tool') { renderToolNote('🔧 ' + ev.name + '(' + JSON.stringify(ev.args || {}) + ')'); }
+        else if (ev.type === 'tool_result') { renderToolNote((ev.ok ? '✓ ' : '✗ ') + ev.name + ' — ' + (ev.summary || '').split('\n')[0]); }
+        else if (ev.type === 'image') { renderImage(ev.url); }
+        else if (ev.type === 'audio') { renderMedia(ev.url, 'audio'); }
+        else if (ev.type === 'video') { renderMedia(ev.url, 'video'); }
+        else if (ev.type === 'error') { addBubble('assistant', 'Error: ' + ev.content); }
+      }
+    }
+  } catch (err) { addBubble('assistant', 'Local error: ' + err.message); }
+  finally {
+    if (assistantTexts.length) history.push({ role: 'assistant', content: assistantTexts.join('\n\n') });
+    setBusy(false);
+  }
+}
+
+fetchModels();
+input.focus();   // ready for Wispr Flow dictation right away
+</script>
+</body>
+</html>
