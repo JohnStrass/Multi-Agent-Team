@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delegation Feed</title>
+<style>
+:root {
+  --bg: #0f0f1a; --surface: #1a1a2e; --surface2: #1e1e35; --border: rgba(255,255,255,0.06);
+  --text: #e4e4ef; --dim: #9a9ab0; --muted: #6b6b85; --accent: #7c5cfc;
+  --deepseek: #4a9eff; --kimi: #34c79a; --qwen: #f0883e; --aider: #c084fc; --claude: #d8a657;
+  --mono: 'Cascadia Code','Fira Code',Consolas,monospace; --sans: -apple-system,'Segoe UI',Roboto,sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.title { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.live { width: 9px; height: 9px; border-radius: 50%; background: #34c79a; box-shadow: 0 0 10px #34c79a; animation: pulse 1.6s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.count { color: var(--muted); font-size: 0.85rem; }
+#feed { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+#feed::-webkit-scrollbar { width: 7px; }
+#feed::-webkit-scrollbar-thumb { background: rgba(124,92,252,0.25); border-radius: 4px; }
+.empty { color: var(--muted); text-align: center; margin-top: 20vh; }
+.card {
+  background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); animation: rise 0.25s ease;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.card.deepseek { border-left-color: var(--deepseek); }
+.card.kimi { border-left-color: var(--kimi); }
+.card.qwen { border-left-color: var(--qwen); }
+.card.aider { border-left-color: var(--aider); }
+.card.claude { border-left-color: var(--claude); }
+.card.err { border-left-color: #ff6b6b; }
+.card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.badge { font-weight: 600; font-size: 0.8rem; padding: 2px 9px; border-radius: 6px; background: rgba(255,255,255,0.06); }
+.badge.deepseek { color: var(--deepseek); } .badge.kimi { color: var(--kimi); }
+.badge.qwen { color: var(--qwen); } .badge.aider { color: var(--aider); } .badge.claude { color: var(--claude); }
+.via { color: var(--muted); font-size: 0.75rem; font-family: var(--mono); }
+.meta { margin-left: auto; color: var(--muted); font-size: 0.72rem; font-family: var(--mono); }
+.err-tag { color: #ff6b6b; font-size: 0.72rem; font-weight: 600; }
+.row { margin-top: 6px; }
+.label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 3px; }
+.body {
+  font-family: var(--mono); font-size: 0.82rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  background: rgba(0,0,0,0.22); border-radius: 7px; padding: 8px 10px; max-height: 150px; overflow: hidden; position: relative; cursor: pointer;
+}
+.body.ask { color: var(--dim); }
+.body.expanded { max-height: none; }
+.body.clamped::after {
+  content: '⌄ more'; position: absolute; bottom: 0; right: 0; left: 0; text-align: center;
+  font-family: var(--sans); font-size: 0.7rem; color: var(--muted);
+  background: linear-gradient(transparent, var(--surface2)); padding: 14px 0 4px;
+}
+</style>
+</head>
+<body>
+  <header>
+    <div class="title"><span class="live"></span> Delegation Feed</div>
+    <div class="count" id="count">0 delegations</div>
+  </header>
+  <div id="feed"><div class="empty">Waiting for Claude to delegate a task…</div></div>
+
+<script>
+const feed = document.getElementById('feed');
+let offset = 0;
+
+function kind(model) {
+  const m = (model || '').toLowerCase();
+  if (m.includes('deepseek')) return 'deepseek';
+  if (m.includes('kimi')) return 'kimi';
+  if (m.includes('qwen')) return 'qwen';
+  if (m.includes('aider')) return 'aider';
+  if (m.includes('claude')) return 'claude';
+  return '';
+}
+function clampify(el) {
+  if (el.scrollHeight > el.clientHeight + 4) el.classList.add('clamped');
+  el.addEventListener('click', () => { el.classList.toggle('expanded'); el.classList.remove('clamped'); });
+}
+function addCard(e) {
+  const k = kind(e.model);
+  const err = e.status === 'error';
+  const card = document.createElement('div');
+  card.className = 'card ' + k + (err ? ' err' : '');
+  const ms = e.ms != null ? (e.ms >= 1000 ? (e.ms/1000).toFixed(1)+'s' : e.ms+'ms') : '';
+  card.innerHTML =
+    '<div class="card-head">' +
+      '<span class="badge ' + k + '">' + escapeHtml(e.model || '?') + '</span>' +
+      '<span class="via">via ' + escapeHtml(e.tool || '') + '</span>' +
+      (err ? '<span class="err-tag">ERROR</span>' : '') +
+      '<span class="meta">' + escapeHtml(e.ts || '') + (ms ? ' · ' + ms : '') + '</span>' +
+    '</div>' +
+    '<div class="row"><div class="label">Claude asked</div><div class="body ask" data-ask></div></div>' +
+    '<div class="row"><div class="label">' + (err ? 'Error' : 'Reply') + '</div><div class="body" data-reply></div></div>';
+  card.querySelector('[data-ask]').textContent = e.prompt || '';
+  card.querySelector('[data-reply]').textContent = e.response || '';
+  feed.appendChild(card);
+  card.querySelectorAll('.body').forEach(clampify);
+}
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+async function poll() {
+  try {
+    const r = await fetch('/api/log?offset=' + offset);
+    const data = await r.json();
+    if (data.entries.length) {
+      const emptyEl = feed.querySelector('.empty');
+      if (emptyEl) emptyEl.remove();
+      const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
+      data.entries.forEach(addCard);
+      offset = data.total;
+      if (nearBottom) feed.scrollTop = feed.scrollHeight;
+    }
+    document.getElementById('count').textContent = data.total + ' delegation' + (data.total === 1 ? '' : 's');
+  } catch (e) { /* server momentarily down; keep trying */ }
+}
+poll();
+setInterval(poll, 1500);
+</script>
+</body>
+</html>

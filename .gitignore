@@ -32,3 +32,7 @@ __pycache__/
 # ---- OS / editor cruft ----
 .DS_Store
 Thumbs.db
+
+# runtime logs / delegation dump
+*.jsonl
+dump/
